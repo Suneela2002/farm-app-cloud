@@ -1,0 +1,11 @@
+# Service account key (never commit)
+service_account.json
+
+# Streamlit secrets (local dev only)
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
