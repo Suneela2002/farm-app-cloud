@@ -247,6 +247,13 @@ st.markdown("""
 [data-testid="stSidebar"] { display: none !important; }
 [data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
+/* Hide Streamlit footer, deploy button, hamburger menu */
+footer { display: none !important; }
+#MainMenu { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
+.stDeployButton { display: none !important; }
+header[data-testid="stHeader"] { background: transparent !important; }
+
 /* Top header bar */
 .top-header {
     position: fixed;
@@ -269,66 +276,31 @@ st.markdown("""
 /* Push main content below header */
 .block-container {
     padding-top: 70px !important;
-    padding-bottom: 90px !important;
+    padding-bottom: 20px !important;
 }
 
-/* Bottom navigation bar */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 68px;
-    background: #ffffff;
-    display: flex;
+/* Style the horizontal radio nav as pills */
+div[data-testid="stRadio"] > div {
+    gap: 0 !important;
     justify-content: space-around;
-    align-items: center;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.12);
-    z-index: 99999;
-    border-top: 1px solid #e0e0e0;
+    background: #f0f2f5;
+    border-radius: 10px;
+    padding: 4px;
 }
-.bottom-nav a {
+div[data-testid="stRadio"] > div > label {
+    font-size: 0.75rem !important;
+    padding: 6px 4px !important;
+    border-radius: 8px;
+    text-align: center;
+    flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-decoration: none;
-    color: #65676B;
-    font-size: 0.65rem;
-    padding: 4px 2px;
-    flex: 1;
-    transition: color 0.15s;
-    line-height: 1.2;
 }
-.bottom-nav a.active {
-    color: #1877F2;
-    font-weight: 700;
-}
-.bottom-nav a:hover {
-    color: #1877F2;
-}
-.bottom-nav .nav-icon {
-    font-size: 1.4rem;
-    margin-bottom: 2px;
-}
-.bottom-nav .nav-label {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 60px;
-    text-align: center;
-}
-
-/* Search results styling */
-.search-result-group {
-    margin-bottom: 1rem;
-}
-.search-result-group h4 {
-    margin: 0.5rem 0 0.25rem 0;
-}
-.search-result-group a {
-    text-decoration: none;
-    color: #1877F2;
+div[data-testid="stRadio"] > div > label[data-checked="true"] {
+    background: #1877F2 !important;
+    color: white !important;
+    border-radius: 8px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -357,14 +329,27 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ---------------------------------------------------------------------------
-# Navigation via query params
+# Navigation via session_state + radio
 # ---------------------------------------------------------------------------
-params = st.query_params
-current_page_key = params.get("page", "dashboard")
-if current_page_key not in NAV_KEYS:
-    current_page_key = "dashboard"
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "dashboard"
 
-page = NAV_KEY_TO_LABEL[current_page_key]
+NAV_DISPLAY = [f"{item['icon']} {item['label']}" for item in NAV_ITEMS]
+
+
+def _on_nav_change():
+    sel = st.session_state["nav_radio"]
+    st.session_state["current_page"] = NAV_KEYS[NAV_DISPLAY.index(sel)]
+
+
+current_idx = NAV_KEYS.index(st.session_state["current_page"])
+st.radio(
+    "nav", NAV_DISPLAY, index=current_idx,
+    horizontal=True, label_visibility="collapsed",
+    key="nav_radio", on_change=_on_nav_change,
+)
+
+page = NAV_KEY_TO_LABEL[st.session_state["current_page"]]
 
 # ---------------------------------------------------------------------------
 # Global search
@@ -421,26 +406,12 @@ if search_query and search_query.strip():
         matches = df[mask]
         if not matches.empty:
             found_any = True
-            st.markdown(f"**[{group_label}](?page={cfg['nav']})** — {len(matches)} ఫలితాలు")
+            st.markdown(f"**{group_label}** — {len(matches)} ఫలితాలు")
             st.dataframe(matches[available_cols].head(10),
                          hide_index=True, use_container_width=True)
     if not found_any:
         st.info("ఫలితాలు దొరకలేదు.")
     st.divider()
-
-# ---------------------------------------------------------------------------
-# Render bottom navigation bar
-# ---------------------------------------------------------------------------
-nav_html_parts = []
-for item in NAV_ITEMS:
-    active_cls = "active" if item["key"] == current_page_key else ""
-    nav_html_parts.append(
-        f'<a href="?page={item["key"]}" class="{active_cls}">'
-        f'<span class="nav-icon">{item["icon"]}</span>'
-        f'<span class="nav-label">{item["label"]}</span></a>'
-    )
-nav_html = '<div class="bottom-nav">' + "".join(nav_html_parts) + '</div>'
-st.markdown(nav_html, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # PAGE: Dashboard
