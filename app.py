@@ -211,12 +211,142 @@ def next_id(df: pd.DataFrame, id_col: str, prefix: str, width: int) -> str:
 
 st.set_page_config(page_title="వ్యవసాయ నిర్వహణ", page_icon="🌾", layout="wide")
 
+# ---------------------------------------------------------------------------
+# Navigation config
+# ---------------------------------------------------------------------------
+NAV_ITEMS = [
+    {"key": "dashboard",     "icon": "📊", "label": LABELS["dashboard"]},
+    {"key": "workers",       "icon": "👷", "label": LABELS["workers"]},
+    {"key": "work_logs",     "icon": "📝", "label": LABELS["work_logs"]},
+    {"key": "tools",         "icon": "🔧", "label": LABELS["tools"]},
+    {"key": "tool_moves",    "icon": "🚚", "label": "తరలింపు"},
+    {"key": "chekkulu",      "icon": "🍂", "label": LABELS["chekkulu"]},
+    {"key": "cold_storage",  "icon": "❄️", "label": "కోల్డ్ స్టోరేజ్"},
+]
+NAV_KEYS = [item["key"] for item in NAV_ITEMS]
+# Build label->key lookup for page routing
+NAV_LABEL_TO_KEY = {item["label"]: item["key"] for item in NAV_ITEMS}
+
+# Map nav keys back to the LABELS values used by page conditionals
+NAV_KEY_TO_LABEL = {
+    "dashboard": LABELS["dashboard"],
+    "workers": LABELS["workers"],
+    "work_logs": LABELS["work_logs"],
+    "tools": LABELS["tools"],
+    "tool_moves": LABELS["tool_moves"],
+    "chekkulu": LABELS["chekkulu"],
+    "cold_storage": LABELS["cold_storage"],
+}
+
+# ---------------------------------------------------------------------------
+# CSS: hide sidebar, top header, bottom nav, search
+# ---------------------------------------------------------------------------
+st.markdown("""
+<style>
+/* Hide default sidebar */
+[data-testid="stSidebar"] { display: none !important; }
+[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+
+/* Top header bar */
+.top-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 54px;
+    background: #1877F2;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    z-index: 99999;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    letter-spacing: 0.5px;
+}
+
+/* Push main content below header */
+.block-container {
+    padding-top: 70px !important;
+    padding-bottom: 90px !important;
+}
+
+/* Bottom navigation bar */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 68px;
+    background: #ffffff;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.12);
+    z-index: 99999;
+    border-top: 1px solid #e0e0e0;
+}
+.bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: #65676B;
+    font-size: 0.65rem;
+    padding: 4px 2px;
+    flex: 1;
+    transition: color 0.15s;
+    line-height: 1.2;
+}
+.bottom-nav a.active {
+    color: #1877F2;
+    font-weight: 700;
+}
+.bottom-nav a:hover {
+    color: #1877F2;
+}
+.bottom-nav .nav-icon {
+    font-size: 1.4rem;
+    margin-bottom: 2px;
+}
+.bottom-nav .nav-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
+    text-align: center;
+}
+
+/* Search results styling */
+.search-result-group {
+    margin-bottom: 1rem;
+}
+.search-result-group h4 {
+    margin: 0.5rem 0 0.25rem 0;
+}
+.search-result-group a {
+    text-decoration: none;
+    color: #1877F2;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# Render top header
+# ---------------------------------------------------------------------------
+st.markdown(
+    '<div class="top-header">🌾 వ్యవసాయ నిర్వహణ</div>',
+    unsafe_allow_html=True,
+)
+
 # --- Password gate ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.title("🔒 లాగిన్")
+    st.markdown("### 🔒 లాగిన్")
     password = st.text_input("పాస్‌వర్డ్ ఎంటర్ చేయండి", type="password")
     if password:
         if password == st.secrets["app_password"]:
@@ -226,20 +356,91 @@ if not st.session_state["authenticated"]:
             st.error("పాస్‌వర్డ్ తప్పు. మళ్ళీ ప్రయత్నించండి.")
     st.stop()
 
-st.title("🌾 వ్యవసాయ నిర్వహణ")
+# ---------------------------------------------------------------------------
+# Navigation via query params
+# ---------------------------------------------------------------------------
+params = st.query_params
+current_page_key = params.get("page", "dashboard")
+if current_page_key not in NAV_KEYS:
+    current_page_key = "dashboard"
 
-page = st.sidebar.radio(
-    "మెనూ",
-    [
-        LABELS["dashboard"],
-        LABELS["workers"],
-        LABELS["work_logs"],
-        LABELS["tools"],
-        LABELS["tool_moves"],
-        LABELS["chekkulu"],
-        LABELS["cold_storage"],
-    ],
-)
+page = NAV_KEY_TO_LABEL[current_page_key]
+
+# ---------------------------------------------------------------------------
+# Global search
+# ---------------------------------------------------------------------------
+SEARCH_SHEET_CONFIG = {
+    LABELS["workers"]: {
+        "sheet": SHEET_NAMES["workers"], "key": "workers",
+        "nav": "workers",
+        "cols": ["worker_id", "name_te", "phone", "notes"],
+    },
+    LABELS["work_logs"]: {
+        "sheet": SHEET_NAMES["work_logs"], "key": "work_logs",
+        "nav": "work_logs",
+        "cols": ["work_log_id", "date", "worker_name_te", "work_type_te", "pay_status"],
+    },
+    LABELS["tools"]: {
+        "sheet": SHEET_NAMES["tools"], "key": "tools",
+        "nav": "tools",
+        "cols": ["tool_id", "name_te", "tool_type", "status_te", "current_place_te"],
+    },
+    "తరలింపు": {
+        "sheet": SHEET_NAMES["tool_moves"], "key": "tool_moves",
+        "nav": "tool_moves",
+        "cols": ["tool_move_id", "date", "tool_name_te", "from_place_te", "to_place_te"],
+    },
+    LABELS["chekkulu"]: {
+        "sheet": SHEET_NAMES["chekkulu"], "key": "chekkulu",
+        "nav": "chekkulu",
+        "cols": ["chekkulu_id", "date", "tbgr_number", "type"],
+    },
+    LABELS["cold_storage"]: {
+        "sheet": SHEET_NAMES["cold_storage"], "key": "cold_storage",
+        "nav": "cold_storage",
+        "cols": ["cold_storage_id", "date_stored", "serial_number", "type"],
+    },
+}
+
+search_query = st.text_input("🔍 అన్ని పేజీల్లో వెతకండి", key="global_search",
+                              placeholder="పేరు, ID, స్థలం...")
+
+if search_query and search_query.strip():
+    q = search_query.strip().lower()
+    found_any = False
+    for group_label, cfg in SEARCH_SHEET_CONFIG.items():
+        df = get_data(cfg["key"], cfg["sheet"])
+        if df.empty:
+            continue
+        available_cols = [c for c in cfg["cols"] if c in df.columns]
+        if not available_cols:
+            continue
+        mask = df[available_cols].astype(str).apply(
+            lambda col: col.str.lower().str.contains(q, na=False)
+        ).any(axis=1)
+        matches = df[mask]
+        if not matches.empty:
+            found_any = True
+            st.markdown(f"**[{group_label}](?page={cfg['nav']})** — {len(matches)} ఫలితాలు")
+            st.dataframe(matches[available_cols].head(10),
+                         hide_index=True, use_container_width=True)
+    if not found_any:
+        st.info("ఫలితాలు దొరకలేదు.")
+    st.divider()
+
+# ---------------------------------------------------------------------------
+# Render bottom navigation bar
+# ---------------------------------------------------------------------------
+nav_html_parts = []
+for item in NAV_ITEMS:
+    active_cls = "active" if item["key"] == current_page_key else ""
+    nav_html_parts.append(
+        f'<a href="?page={item["key"]}" class="{active_cls}">'
+        f'<span class="nav-icon">{item["icon"]}</span>'
+        f'<span class="nav-label">{item["label"]}</span></a>'
+    )
+nav_html = '<div class="bottom-nav">' + "".join(nav_html_parts) + '</div>'
+st.markdown(nav_html, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # PAGE: Dashboard
