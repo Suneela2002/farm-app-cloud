@@ -80,7 +80,8 @@ LABELS = {
     "chekkulu": "చెక్కులు",
     "add_chekkulu": "కొత్త చెక్క చేర్చు",
     "chekkulu_id": "చెక్క ID",
-    "chekkulu_rate": "రేటు",
+    "chekkulu_rate": "రేటు (per kg)",
+    "chekkulu_total": "మొత్తం (₹)",
     "chekkulu_weight": "బరువు",
     "tbgr_number": "TBGR నంబర్",
     "chekkulu_type": "రకం",
@@ -666,10 +667,16 @@ elif page == LABELS["chekkulu"]:
         if sel_ck_type != LABELS["all"]:
             filtered_ck = filtered_ck[filtered_ck["type"] == sel_ck_type]
 
+        filtered_ck["total"] = pd.to_numeric(filtered_ck["rate"], errors="coerce").fillna(0) \
+                              * pd.to_numeric(filtered_ck["weight"], errors="coerce").fillna(0)
+
+        st.metric(LABELS["chekkulu_total"], f"₹{filtered_ck['total'].sum():,.2f}")
+
         display_ck = filtered_ck[["chekkulu_id", "date", "rate", "weight",
-                                   "tbgr_number", "type"]].copy()
+                                   "total", "tbgr_number", "type"]].copy()
         display_ck.columns = [LABELS["chekkulu_id"], LABELS["date"],
                               LABELS["chekkulu_rate"], LABELS["chekkulu_weight"],
+                              LABELS["chekkulu_total"],
                               LABELS["tbgr_number"], LABELS["chekkulu_type"]]
         st.dataframe(display_ck, hide_index=True, use_container_width=True)
     else:
