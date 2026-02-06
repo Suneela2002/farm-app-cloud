@@ -286,16 +286,20 @@ div[data-testid="stRadio"] > div {
     background: #f0f2f5;
     border-radius: 10px;
     padding: 4px;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
 }
 div[data-testid="stRadio"] > div > label {
     font-size: 0.75rem !important;
-    padding: 6px 4px !important;
+    padding: 6px 6px !important;
     border-radius: 8px;
     text-align: center;
-    flex: 1;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: center;
+    white-space: nowrap;
 }
 div[data-testid="stRadio"] > div > label[data-checked="true"] {
     background: #1877F2 !important;
