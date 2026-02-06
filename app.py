@@ -15,6 +15,8 @@ SHEET_NAMES = {
     "tools": "tools",
     "tool_moves": "tool_moves",
     "storage_places": "storage_places",
+    "chekkulu": "chekkulu",
+    "cold_storage": "cold_storage",
 }
 
 LABELS = {
@@ -74,6 +76,34 @@ LABELS = {
     "to_place": "ఎక్కడికి",
     "moved_by": "తరలించినవారు",
     "movement_history": "తరలింపు చరిత్ర",
+    # Chekkulu (Tobacco Bales)
+    "chekkulu": "చెక్కులు",
+    "add_chekkulu": "కొత్త చెక్క చేర్చు",
+    "chekkulu_id": "చెక్క ID",
+    "chekkulu_rate": "రేటు",
+    "chekkulu_weight": "బరువు",
+    "tbgr_number": "TBGR నంబర్",
+    "chekkulu_type": "రకం",
+    # Cold Storage
+    "cold_storage": "కోల్డ్ స్టోరేజ్",
+    "add_cold_storage": "కొత్త ఐటమ్ చేర్చు",
+    "cold_storage_id": "ID",
+    "date_stored": "దాచిన తేదీ",
+    "count": "సంఖ్య",
+    "weight": "బరువు",
+    "serial_number": "సీరియల్ నంబర్",
+    "date_removed": "తీసిన తేదీ",
+    "mark_removed": "తీసినట్టు నమోదు",
+    # Filters – Chekkulu
+    "filter_ck_date": "తేదీ ఫిల్టర్",
+    "filter_tbgr": "TBGR ఫిల్టర్",
+    "filter_ck_type": "రకం ఫిల్టర్",
+    # Filters – Cold Storage
+    "filter_cs_date_stored": "దాచిన తేదీ ఫిల్టర్",
+    "filter_cs_date_removed": "తీసిన తేదీ ఫిల్టర్",
+    "filter_serial": "సీరియల్ నంబర్ ఫిల్టర్",
+    "filter_cs_type": "రకం ఫిల్టర్",
+    "cs_type": "రకం",
     # Common
     "save": "సేవ్ చేయి",
     "submit": "సమర్పించు",
@@ -115,8 +145,27 @@ def get_spreadsheet():
 # Data helpers
 # ---------------------------------------------------------------------------
 
+SHEET_HEADERS = {
+    "chekkulu": ["chekkulu_id", "date", "rate", "weight", "tbgr_number", "type"],
+    "cold_storage": ["cold_storage_id", "date_stored", "count", "weight",
+                     "serial_number", "type", "date_removed"],
+}
+
+
+def ensure_worksheet(sheet_name: str):
+    """Create the worksheet with headers if it does not exist yet."""
+    ss = get_spreadsheet()
+    try:
+        ss.worksheet(sheet_name)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = ss.add_worksheet(title=sheet_name, rows=1000, cols=20)
+        if sheet_name in SHEET_HEADERS:
+            ws.update(range_name="A1", values=[SHEET_HEADERS[sheet_name]])
+
+
 def load_sheet(sheet_name: str) -> pd.DataFrame:
     ss = get_spreadsheet()
+    ensure_worksheet(sheet_name)
     ws = ss.worksheet(sheet_name)
     records = ws.get_all_records()
     df = pd.DataFrame(records)
@@ -186,6 +235,8 @@ page = st.sidebar.radio(
         LABELS["work_logs"],
         LABELS["tools"],
         LABELS["tool_moves"],
+        LABELS["chekkulu"],
+        LABELS["cold_storage"],
     ],
 )
 
@@ -576,3 +627,202 @@ elif page == LABELS["tool_moves"]:
     # Show most recent first
     display_mv = display_mv.iloc[::-1].reset_index(drop=True)
     st.dataframe(display_mv, hide_index=True, use_container_width=True)
+
+# ---------------------------------------------------------------------------
+# PAGE: చెక్కులు (Tobacco Bales)
+# ---------------------------------------------------------------------------
+elif page == LABELS["chekkulu"]:
+    chekkulu = get_data("chekkulu", SHEET_NAMES["chekkulu"])
+
+    st.subheader(LABELS["chekkulu"])
+
+    if not chekkulu.empty:
+        # --- Filters ---
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            ck_dates = sorted(chekkulu["date"].unique())
+            ck_min_d = datetime.strptime(ck_dates[0], "%Y-%m-%d").date() if ck_dates else date.today()
+            ck_max_d = datetime.strptime(ck_dates[-1], "%Y-%m-%d").date() if ck_dates else date.today()
+            ck_date_range = st.date_input(LABELS["filter_ck_date"],
+                                          value=(ck_min_d, ck_max_d),
+                                          min_value=ck_min_d, max_value=ck_max_d,
+                                          key="ck_date_filter")
+        with fc2:
+            tbgr_opts = [LABELS["all"]] + sorted(chekkulu["tbgr_number"].unique().tolist())
+            sel_tbgr = st.selectbox(LABELS["filter_tbgr"], tbgr_opts, key="ck_tbgr_filter")
+        with fc3:
+            type_opts = [LABELS["all"]] + sorted(chekkulu["type"].unique().tolist())
+            sel_ck_type = st.selectbox(LABELS["filter_ck_type"], type_opts, key="ck_type_filter")
+
+        filtered_ck = chekkulu.copy()
+        if isinstance(ck_date_range, tuple) and len(ck_date_range) == 2:
+            d_start, d_end = ck_date_range
+            filtered_ck = filtered_ck[
+                (filtered_ck["date"] >= d_start.strftime("%Y-%m-%d")) &
+                (filtered_ck["date"] <= d_end.strftime("%Y-%m-%d"))
+            ]
+        if sel_tbgr != LABELS["all"]:
+            filtered_ck = filtered_ck[filtered_ck["tbgr_number"] == sel_tbgr]
+        if sel_ck_type != LABELS["all"]:
+            filtered_ck = filtered_ck[filtered_ck["type"] == sel_ck_type]
+
+        display_ck = filtered_ck[["chekkulu_id", "date", "rate", "weight",
+                                   "tbgr_number", "type"]].copy()
+        display_ck.columns = [LABELS["chekkulu_id"], LABELS["date"],
+                              LABELS["chekkulu_rate"], LABELS["chekkulu_weight"],
+                              LABELS["tbgr_number"], LABELS["chekkulu_type"]]
+        st.dataframe(display_ck, hide_index=True, use_container_width=True)
+    else:
+        st.info("చెక్కులు రికార్డులు లేవు.")
+
+    # --- Add chekkulu ---
+    with st.expander(LABELS["add_chekkulu"], expanded=False):
+        with st.form("add_chekkulu_form"):
+            ck_date = st.date_input(LABELS["date"], value=date.today())
+            ck_rate = st.number_input(LABELS["chekkulu_rate"], min_value=0.0,
+                                      value=0.0, step=0.5, format="%.2f")
+            ck_weight = st.number_input(LABELS["chekkulu_weight"], min_value=0.0,
+                                        value=0.0, step=0.5, format="%.2f")
+            ck_tbgr = st.text_input(LABELS["tbgr_number"])
+            ck_type = st.text_input(LABELS["chekkulu_type"])
+            ck_submit = st.form_submit_button(LABELS["save"])
+
+        if ck_submit:
+            new_ck_id = next_id(chekkulu, "chekkulu_id", "CK", 6)
+            new_ck = pd.DataFrame([{
+                "chekkulu_id": new_ck_id,
+                "date": ck_date.strftime("%Y-%m-%d"),
+                "rate": ck_rate,
+                "weight": ck_weight,
+                "tbgr_number": ck_tbgr.strip(),
+                "type": ck_type.strip(),
+            }])
+            chekkulu = pd.concat([chekkulu, new_ck], ignore_index=True)
+            save_sheet(chekkulu, SHEET_NAMES["chekkulu"])
+            st.session_state["chekkulu"] = chekkulu
+            st.success(f"చెక్క {new_ck_id} చేర్చబడింది!")
+            st.rerun()
+
+# ---------------------------------------------------------------------------
+# PAGE: కోల్డ్ స్టోరేజ్ (Cold Storage)
+# ---------------------------------------------------------------------------
+elif page == LABELS["cold_storage"]:
+    cold_storage = get_data("cold_storage", SHEET_NAMES["cold_storage"])
+
+    st.subheader(LABELS["cold_storage"])
+
+    if not cold_storage.empty:
+        # --- Filters ---
+        fc1, fc2, fc3, fc4 = st.columns(4)
+        with fc1:
+            cs_dates = sorted([d for d in cold_storage["date_stored"].unique() if d])
+            cs_min_d = datetime.strptime(cs_dates[0], "%Y-%m-%d").date() if cs_dates else date.today()
+            cs_max_d = datetime.strptime(cs_dates[-1], "%Y-%m-%d").date() if cs_dates else date.today()
+            cs_date_range = st.date_input(LABELS["filter_cs_date_stored"],
+                                          value=(cs_min_d, cs_max_d),
+                                          min_value=cs_min_d, max_value=cs_max_d,
+                                          key="cs_date_stored_filter")
+        with fc2:
+            rm_dates = sorted([d for d in cold_storage["date_removed"].unique() if d])
+            if rm_dates:
+                rm_min_d = datetime.strptime(rm_dates[0], "%Y-%m-%d").date()
+                rm_max_d = datetime.strptime(rm_dates[-1], "%Y-%m-%d").date()
+                cs_rm_date_range = st.date_input(LABELS["filter_cs_date_removed"],
+                                                 value=(rm_min_d, rm_max_d),
+                                                 min_value=rm_min_d, max_value=rm_max_d,
+                                                 key="cs_date_removed_filter")
+            else:
+                cs_rm_date_range = None
+                st.text_input(LABELS["filter_cs_date_removed"], value="—", disabled=True)
+        with fc3:
+            serial_opts = [LABELS["all"]] + sorted([s for s in cold_storage["serial_number"].unique() if s])
+            sel_serial = st.selectbox(LABELS["filter_serial"], serial_opts, key="cs_serial_filter")
+        with fc4:
+            cs_type_opts = [LABELS["all"]] + sorted([t for t in cold_storage["type"].unique() if t])
+            sel_cs_type = st.selectbox(LABELS["filter_cs_type"], cs_type_opts, key="cs_type_filter")
+
+        filtered_cs = cold_storage.copy()
+        if isinstance(cs_date_range, tuple) and len(cs_date_range) == 2:
+            d_start, d_end = cs_date_range
+            filtered_cs = filtered_cs[
+                (filtered_cs["date_stored"] >= d_start.strftime("%Y-%m-%d")) &
+                (filtered_cs["date_stored"] <= d_end.strftime("%Y-%m-%d"))
+            ]
+        if cs_rm_date_range is not None and isinstance(cs_rm_date_range, tuple) and len(cs_rm_date_range) == 2:
+            r_start, r_end = cs_rm_date_range
+            filtered_cs = filtered_cs[
+                (filtered_cs["date_removed"] >= r_start.strftime("%Y-%m-%d")) &
+                (filtered_cs["date_removed"] <= r_end.strftime("%Y-%m-%d"))
+            ]
+        if sel_serial != LABELS["all"]:
+            filtered_cs = filtered_cs[filtered_cs["serial_number"] == sel_serial]
+        if sel_cs_type != LABELS["all"]:
+            filtered_cs = filtered_cs[filtered_cs["type"] == sel_cs_type]
+
+        display_cs = filtered_cs[["cold_storage_id", "date_stored", "count",
+                                   "weight", "serial_number", "type",
+                                   "date_removed"]].copy()
+        # Build serial_number display: serial / count of rows with same serial
+        serial_counts = cold_storage["serial_number"].value_counts()
+        display_cs["serial_number"] = display_cs["serial_number"].apply(
+            lambda s: f"{s} / {serial_counts[s]}" if s else ""
+        )
+        display_cs.columns = [LABELS["cold_storage_id"], LABELS["date_stored"],
+                              LABELS["count"], LABELS["weight"],
+                              LABELS["serial_number"], LABELS["cs_type"],
+                              LABELS["date_removed"]]
+        st.dataframe(display_cs, hide_index=True, use_container_width=True)
+    else:
+        st.info("కోల్డ్ స్టోరేజ్ రికార్డులు లేవు.")
+
+    # --- Add cold storage item ---
+    with st.expander(LABELS["add_cold_storage"], expanded=False):
+        with st.form("add_cs_form"):
+            cs_date = st.date_input(LABELS["date_stored"], value=date.today())
+            cs_count = st.number_input(LABELS["count"], min_value=0, value=0, step=1)
+            cs_weight = st.number_input(LABELS["weight"], min_value=0.0,
+                                        value=0.0, step=0.5, format="%.2f")
+            cs_serial = st.text_input(LABELS["serial_number"])
+            cs_type = st.text_input(LABELS["cs_type"])
+            cs_submit = st.form_submit_button(LABELS["save"])
+
+        if cs_submit:
+            new_cs_id = next_id(cold_storage, "cold_storage_id", "CS", 6)
+            new_cs = pd.DataFrame([{
+                "cold_storage_id": new_cs_id,
+                "date_stored": cs_date.strftime("%Y-%m-%d"),
+                "count": cs_count,
+                "weight": cs_weight,
+                "serial_number": cs_serial.strip(),
+                "type": cs_type.strip(),
+                "date_removed": "",
+            }])
+            cold_storage = pd.concat([cold_storage, new_cs], ignore_index=True)
+            save_sheet(cold_storage, SHEET_NAMES["cold_storage"])
+            st.session_state["cold_storage"] = cold_storage
+            st.success(f"ఐటమ్ {new_cs_id} చేర్చబడింది!")
+            st.rerun()
+
+    # --- Mark as removed ---
+    with st.expander(LABELS["mark_removed"], expanded=False):
+        active_items = cold_storage[cold_storage["date_removed"] == ""].copy()
+        if active_items.empty:
+            st.info("తీయవలసిన ఐటమ్‌లు లేవు.")
+        else:
+            item_opts = [
+                f"{r.cold_storage_id} | {r.serial_number} | బరువు: {r.weight}"
+                for _, r in active_items.iterrows()
+            ]
+            with st.form("mark_removed_form"):
+                sel_item = st.selectbox("ఐటమ్ ఎంచుకోండి", item_opts)
+                sel_cs_id = sel_item.split(" | ")[0]
+                rm_date = st.date_input(LABELS["date_removed"], value=date.today())
+                rm_submit = st.form_submit_button(LABELS["save"])
+
+            if rm_submit:
+                idx = cold_storage.index[cold_storage["cold_storage_id"] == sel_cs_id][0]
+                cold_storage.at[idx, "date_removed"] = rm_date.strftime("%Y-%m-%d")
+                save_sheet(cold_storage, SHEET_NAMES["cold_storage"])
+                st.session_state["cold_storage"] = cold_storage
+                st.success(f"ఐటమ్ {sel_cs_id} తీసినట్టు నమోదు చేయబడింది!")
+                st.rerun()
