@@ -249,7 +249,6 @@ st.markdown("""
 
 /* Hide Streamlit footer, deploy button, hamburger menu */
 footer { display: none !important; }
-#MainMenu { display: none !important; }
 [data-testid="stStatusWidget"] { display: none !important; }
 .stDeployButton { display: none !important; }
 header[data-testid="stHeader"] { background: transparent !important; }
