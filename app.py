@@ -838,7 +838,7 @@ elif page == LABELS["chekkulu"]:
                 (filtered_ck["date"] <= d_end.strftime("%Y-%m-%d"))
             ]
         if sel_tbgr != LABELS["all"]:
-            filtered_ck = filtered_ck[filtered_ck["tbgr_number"] == sel_tbgr]
+            filtered_ck = filtered_ck[filtered_ck["tbgr_number"].astype(str) == sel_tbgr]
         if sel_ck_type != LABELS["all"]:
             filtered_ck = filtered_ck[filtered_ck["type"] == sel_ck_type]
 
@@ -937,7 +937,7 @@ elif page == LABELS["cold_storage"]:
                 (filtered_cs["date_removed"] <= r_end.strftime("%Y-%m-%d"))
             ]
         if sel_serial != LABELS["all"]:
-            filtered_cs = filtered_cs[filtered_cs["serial_number"] == sel_serial]
+            filtered_cs = filtered_cs[filtered_cs["serial_number"].astype(str) == sel_serial]
         if sel_cs_type != LABELS["all"]:
             filtered_cs = filtered_cs[filtered_cs["type"] == sel_cs_type]
 
