@@ -824,7 +824,7 @@ elif page == LABELS["chekkulu"]:
                                           min_value=ck_min_d, max_value=ck_max_d,
                                           key="ck_date_filter")
         with fc2:
-            tbgr_opts = [LABELS["all"]] + sorted(chekkulu["tbgr_number"].unique().tolist())
+            tbgr_opts = [LABELS["all"]] + sorted([str(x) for x in chekkulu["tbgr_number"].unique() if x])
             sel_tbgr = st.selectbox(LABELS["filter_tbgr"], tbgr_opts, key="ck_tbgr_filter")
         with fc3:
             type_opts = [LABELS["all"]] + sorted(chekkulu["type"].unique().tolist())
@@ -917,10 +917,10 @@ elif page == LABELS["cold_storage"]:
                 cs_rm_date_range = None
                 st.text_input(LABELS["filter_cs_date_removed"], value="—", disabled=True)
         with fc3:
-            serial_opts = [LABELS["all"]] + sorted([s for s in cold_storage["serial_number"].unique() if s])
+            serial_opts = [LABELS["all"]] + sorted([str(s) for s in cold_storage["serial_number"].unique() if s])
             sel_serial = st.selectbox(LABELS["filter_serial"], serial_opts, key="cs_serial_filter")
         with fc4:
-            cs_type_opts = [LABELS["all"]] + sorted([t for t in cold_storage["type"].unique() if t])
+            cs_type_opts = [LABELS["all"]] + sorted([str(t) for t in cold_storage["type"].unique() if t])
             sel_cs_type = st.selectbox(LABELS["filter_cs_type"], cs_type_opts, key="cs_type_filter")
 
         filtered_cs = cold_storage.copy()
